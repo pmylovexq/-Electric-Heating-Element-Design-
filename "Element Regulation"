@@ -1,0 +1,183 @@
+import numpy as np
+import openpyxl as op           			        
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPRegressor
+from sklearn.model_selection import train_test_split
+import numpy as np
+from sklearn.svm import SVR
+from sklearn.model_selection import KFold
+from sklearn.model_selection import GridSearchCV
+
+# #Al=np.arange(0,5.0+0.00001,0.1)
+# Al=2.56
+# #Zr=3.31
+# Zr=np.arange(0,6.6+0.0001,0.1)
+# Si=7.50
+# Mo=0.86
+# V=1.50
+# Sn=1.25
+# Nb=6.63
+# Mn=1.40
+
+# Al1,Si1,Zr1,Mo1,V1,Sn1,Nb1,Mn1,Ti=[],[],[],[],[],[],[],[],[]
+
+# count=0
+# for i in range(len(Zr)):                             
+#     res=100-Al-Si-Zr[i]-Mo-V-Sn-Nb-Mn
+#     if res >= 66.28:
+#         Al1.append(Al)
+#         Si1.append(Si)
+#         Zr1.append(Zr[i])
+#         Mo1.append(Mo)
+#         V1.append(V)
+#         Sn1.append(Sn)
+#         Nb1.append(Nb) 
+#         Mn1.append(Mn)                                        
+#         Ti.append(res)
+#         count+=1   			                   
+
+# # Al1.append(Al)
+# # Si1.append(Si)
+# # Zr1.append(12.02)
+# # Mo1.append(Mo)
+# # V1.append(V)
+# # Sn1.append(Sn)
+# # Nb1.append(Nb) 
+# # Mn1.append(Mn)                                        
+# # Ti.append(66.28)
+# # count+=1
+
+# #bg = op.load_workbook(r'./Desktop/XLWSJ/YSTJAL.xlsx')      	
+# bg = op.load_workbook(r'./Desktop/XLWSJ/YSTJZR.xlsx')
+# sheet = bg["Sheet1"]                          		 	
+# for i in range(2,count+2):						
+#     sheet.cell(i , 1, Al1[i -2])# sheet.cell(1,1,num_list[0])表示将num_list列表的第0个数据1写入到excel表格的第一行第一列
+#     sheet.cell(i , 2, Si1[i -2])
+#     sheet.cell(i , 3, Zr1[i -2])
+#     sheet.cell(i , 4, Mo1[i -2])
+#     sheet.cell(i , 5, V1[i -2])
+#     sheet.cell(i , 6, Sn1[i -2])
+#     sheet.cell(i , 7, Nb1[i -2])
+#     sheet.cell(i , 8, Mn1[i -2])
+#     sheet.cell(i , 9, Ti[i -2])
+# #bg.save('./Desktop/XLWSJ/YSTJAL.xlsx') 
+# bg.save('./Desktop/XLWSJ/YSTJZR.xlsx')
+# print("数据写入完毕，总成分组合数为：  \t",count)
+
+#---------------------------------------------------------------------------------------------------------------------------
+
+dates=pd.read_excel('./Desktop/XLWSJ/CFZHDZLTCR729.xlsx')
+data_AL=pd.read_excel('./Desktop/XLWSJ/YSTJAL.xlsx')
+data_ZR=pd.read_excel('./Desktop/XLWSJ/YSTJZR.xlsx')
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
+X = dates.iloc[:,2:]
+Y_DZL = dates.iloc[:,0]*1000
+Y_TCR = dates.iloc[:,1]
+x_DZL_train, x_DZL_test, y_DZL_train, y_DZL_test = train_test_split(X, Y_DZL, test_size=0.2, random_state=None)
+x_TCR_train, x_TCR_test, y_TCR_train, y_TCR_test = train_test_split(X, Y_TCR, test_size=0.2, random_state=None)
+AL_test=data_AL.iloc[0:52,0:9]
+ZR_test=data_ZR.iloc[0:67,0:9]
+
+
+font2 = {'family': 'Times New Roman','weight': 'normal','size': 17, }
+ax3=[3.8]*3
+ax4=[4.8]*2
+#标准化
+scaler = StandardScaler()
+scaler.fit(x_DZL_test)  
+x_DZL_test_Standard= scaler.transform(x_DZL_test)  
+scaler.fit(x_DZL_train)  
+x_DZL_train_Standard= scaler.transform(x_DZL_train)   
+scaler.fit(x_TCR_test)  
+x_TCR_test_Standard= scaler.transform(x_TCR_test)  
+scaler.fit(x_TCR_train)  
+x_TCR_train_Standard= scaler.transform(x_TCR_train)
+scaler.fit(AL_test)  
+AL_test_Standard= scaler.transform(AL_test.values)  
+scaler.fit(ZR_test)  
+ZR_test_Standard= scaler.transform(ZR_test.values)
+
+
+# #Al的元素调节
+# #rbf+SVR设置
+param_grid={'C':[0.01,0.1,1,10,50,100,150],'epsilon':[0.01,0.1,1,10],'gamma':[0.01,0.1,1,10]}
+kfold=KFold(n_splits=10,shuffle=True,random_state=1)
+model_AL=GridSearchCV(SVR(kernel='rbf'),param_grid,cv=kfold)
+model_AL.fit(x_DZL_train_Standard,y_DZL_train)
+model_AL.best_params_
+model1_max=model_AL.best_estimator_
+AL_DZL_pred=model1_max.predict(AL_test_Standard)
+#BPNN设置
+bp_AL=MLPRegressor(hidden_layer_sizes=(36,36, ), activation='relu', solver='adam',max_iter=100000)
+bp_AL.fit(x_TCR_train_Standard,y_TCR_train.astype('int'))
+AL_TCR_pred=bp_AL.predict(AL_test_Standard)
+#输出数据处理
+AL_DZL_pred=list(AL_DZL_pred)
+AL_TCR_pred=list(AL_TCR_pred)
+for i in range(len(AL_DZL_pred)):       
+    AL_DZL_pred[i]=round(AL_DZL_pred[i]/1000,3)
+    AL_TCR_pred[i]=int(AL_TCR_pred[i])
+#可视化
+ax1=np.arange(0,5.0+0.00001,0.1)
+fig, ax = plt.subplots(figsize=(8, 5))
+L1,=ax.plot(ax1, AL_DZL_pred,color='red', linestyle='-',linewidth=2)
+ax.set_ylabel("Changes in Resistivity", font2,weight='bold')
+ax.set_xlabel("The content of Al(%)", font2,weight='bold')
+ax.spines['right'].set_visible(False) # ax右轴隐藏
+z_ax = ax.twinx() # 创建与轴群ax共享x轴的轴群z_ax
+L2,=z_ax.plot(ax1, AL_TCR_pred,color='g', linestyle='-',linewidth=2)
+z_ax.set_ylabel("Changes in TCR ", font2,weight='bold')
+L3,=ax.plot(ax3,np.arange(0.5,1.5+0.0001,0.5),color='orange', linestyle='--',linewidth=2)
+plt.title("Effect of Al on electrical properties",fontproperties='Times New Roman',fontsize='18',weight='bold') 
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.legend(handles=[L1, L2], labels=['ρ', 'TCR'],  loc='upper center',fontsize='13') 
+plt.show()
+
+
+#Zr元素调节
+# #rbf+SVR设置
+param_grid={'C':[0.01,0.1,1,10,50,100,150],'epsilon':[0.01,0.1,1,10],'gamma':[0.01,0.1,1,10]}
+kfold=KFold(n_splits=10,shuffle=True,random_state=1)
+model_ZR=GridSearchCV(SVR(kernel='rbf'),param_grid,cv=kfold)
+model_ZR.fit(x_DZL_train_Standard,y_DZL_train)
+model_ZR.best_params_
+model1_max=model_ZR.best_estimator_
+ZR_DZL_pred=model1_max.predict(ZR_test_Standard)
+#BPNN设置
+bp_ZR=MLPRegressor(hidden_layer_sizes=(36,36, ), activation='relu', solver='adam',max_iter=100000)
+bp_ZR.fit(x_TCR_train_Standard,y_TCR_train.astype('int'))
+ZR_TCR_pred=bp_ZR.predict(ZR_test_Standard)
+#输出数据处理
+ZR_DZL_pred=list(ZR_DZL_pred)
+ZR_TCR_pred=list(ZR_TCR_pred)
+for i in range(len(ZR_DZL_pred)):       
+    ZR_DZL_pred[i]=round(ZR_DZL_pred[i]/1000,3)
+    ZR_TCR_pred[i]=int(ZR_TCR_pred[i])
+#可视化
+ax2=np.arange(0,6.6+0.0001,0.1)
+fig, ax = plt.subplots(figsize=(8, 5))
+L1,=ax.plot(ax2, ZR_DZL_pred,color='red', linestyle='-',linewidth=2)
+ax.set_ylabel("Changes in Resistivity", font2,weight='bold')
+ax.set_xlabel("The content of Zr(%)", font2,weight='bold')
+ax.spines['right'].set_visible(False) # ax右轴隐藏
+z_ax = ax.twinx() # 创建与轴群ax共享x轴的轴群z_ax
+L2,=z_ax.plot(ax2, ZR_TCR_pred,color='g', linestyle='-',linewidth=2)
+z_ax.set_ylabel("Changes in TCR ", font2,weight='bold')
+L3,=ax.plot(ax4,[1.0,1.28],color='orange', linestyle='--',linewidth=2)
+plt.title("Effect of Zr on electrical properties",fontproperties='Times New Roman',fontsize='18',weight='bold') 
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.legend(handles=[L1, L2], labels=['ρ', 'TCR'],  loc='upper center',fontsize='13') 
+plt.show()
+
+
+
+
+
+
+
+
+
