@@ -1,0 +1,188 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPRegressor
+from sklearn.model_selection import train_test_split
+import statsmodels.api as sm
+from sklearn.svm import SVR
+from sklearn.model_selection import KFold
+from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import Ridge
+
+# 数据整理
+dates = pd.read_excel('./Desktop/XLWSJ/CFZHDZLTCR729.xlsx')
+X = dates.iloc[:, 2:]
+Y = dates.iloc[:, 0]*1000
+
+# 划分数据集为训练集、验证集和测试集
+x_train, x_temp, y_train, y_temp = train_test_split(X, Y, test_size=0.475, random_state=None)
+x_validate, x_test, y_validate, y_test = train_test_split(x_temp, y_temp, test_size=0.5, random_state=None)
+print(dates.describe())
+
+# 标准化
+scaler = StandardScaler()
+scaler.fit(x_test)
+x_test_Standard = scaler.transform(x_test)
+scaler.fit(x_train)
+x_train_Standard = scaler.transform(x_train)
+x_validate_Standard = scaler.transform(x_validate)
+
+# MLP设置
+# param_grid = {'hidden_layer_sizes': [(36,), (50,), (100,)],'activation': ['relu', 'tanh'],'solver': ['adam', 'lbfgs'],'max_iter': [100000, 200000]}
+bp = MLPRegressor(hidden_layer_sizes=(36,), activation='relu', solver='adam', max_iter=100000)
+bp.fit(x_train_Standard, y_train.astype('int'))
+MLP_test_pred = bp.predict(x_test_Standard)
+MLP_validate_pred = bp.predict(x_validate_Standard)
+
+#多元线性回归设置
+model_Linear = sm.OLS(y_train, x_train) #生成模型
+result_Linear = model_Linear.fit() #模型拟合
+Linear_test_pred=result_Linear.predict(x_test)
+Linear_validate_pred = result_Linear.predict(x_validate)
+
+#SVR设置
+param_grid={'C':[0.01,0.1,1,10,50,100,150],'epsilon':[0.01,0.1,1,10],'gamma':[0.01,0.1,1,10]}#定义参数网格
+kfold=KFold(n_splits=10,shuffle=True,random_state=1)#定义10折随机分组
+#rbf+SVR设置
+model1_opt=GridSearchCV(SVR(kernel='rbf'),param_grid,cv=kfold)
+model1_opt.fit(x_train_Standard,y_train)
+model1_opt.best_params_
+model1_max=model1_opt.best_estimator_#结合最优超参数，重新定义最优model
+support_nums1=len(model1_max.support_)#展示支持向量数目
+Rbf_SVR_test_pred=model1_max.predict(x_test_Standard)#使用测试集
+Rbf_SVR_validate_pred=model1_max.predict(x_validate_Standard)
+
+#sigmod-SVR网格寻优
+model4_opt=GridSearchCV(SVR(kernel='sigmoid'),param_grid,cv=kfold)
+model4_opt.fit(x_train_Standard,y_train)
+model4_opt.best_params_
+model4_max=model4_opt.best_estimator_#结合最优超参数，重新定义最优model
+support_nums4=len(model4_max.support_)#展示支持向量数目
+Sigmod_SVR_test_pred=model4_max.predict(x_test_Standard)#使用测试集
+Sigmod_SVR_validate_pred=model4_max.predict(x_validate_Standard)
+
+#岭回归设置
+param_grid = {'alpha': [0.001, 0.01, 0.1, 1, 10, 100]}
+ridge = Ridge()
+grid_search = GridSearchCV(ridge, param_grid, cv=5)
+grid_search.fit(x_train, y_train)
+best_alpha = grid_search.best_params_['alpha']
+best_estimator = Ridge(alpha=best_alpha)
+best_estimator.fit(x_train, y_train)
+Ridge_test_pred = best_estimator.predict(x_test)
+Ridge_validate_pred = best_estimator.predict(x_validate)
+
+y_test = y_test.tolist()
+y_validate=list(y_validate)
+MLP_test_pred=list(MLP_test_pred)
+MLP_validate_pred=list(MLP_validate_pred)
+Linear_test_pred=list(Linear_test_pred)
+Linear_validate_pred=list(Linear_validate_pred)
+Rbf_SVR_test_pred=list(Rbf_SVR_test_pred)
+Rbf_SVR_validate_pred=list(Rbf_SVR_validate_pred)
+Sigmod_SVR_test_pred=list(Sigmod_SVR_test_pred)
+Sigmod_SVR_validate_pred=list(Sigmod_SVR_validate_pred)
+Ridge_test_pred=list(Ridge_test_pred)
+Ridge_validate_pred=list(Ridge_validate_pred)
+
+for i in range(len(y_test)):    
+    y_test[i]=round(y_test[i]/1000,3)
+    MLP_test_pred[i]=round(MLP_test_pred[i]/1000,3)   
+    Linear_test_pred[i]=round(Linear_test_pred[i]/1000,3)   
+    Rbf_SVR_test_pred[i]=round(Rbf_SVR_test_pred[i]/1000,3)
+    Sigmod_SVR_test_pred[i]=round(Sigmod_SVR_test_pred[i]/1000,3)
+    Ridge_test_pred[i]=round(Ridge_test_pred[i]/1000,3)
+
+for j in range(len(y_validate)):
+    y_validate[j]=round(y_validate[j]/1000,3)
+    MLP_validate_pred[j]=round(MLP_validate_pred[j]/1000,3)
+    Linear_validate_pred[j]=round(Linear_validate_pred[j]/1000,3)
+    Rbf_SVR_validate_pred[j]=round(Rbf_SVR_validate_pred[j]/1000,3)
+    Sigmod_SVR_validate_pred[j]=round(Sigmod_SVR_validate_pred[j]/1000,3)
+    Ridge_validate_pred[j]=round(Ridge_validate_pred[j]/1000,3)
+
+#计算斜线的起始和结束点
+min_val_BPNN = min(min(y_test), min(MLP_test_pred), min(y_validate), min(MLP_validate_pred))
+max_val_BPNN = max(max(y_test), max(MLP_test_pred), max(y_validate), max(MLP_validate_pred))
+
+min_val_Rbf_SVR = min(min(y_test), min(Rbf_SVR_test_pred), min(y_validate), min(Rbf_SVR_validate_pred))
+max_val_Rbf_SVR = max(max(y_test), max(Rbf_SVR_test_pred), max(y_validate), max(Rbf_SVR_validate_pred))
+
+min_val_Sigmod_SVR = min(min(y_test), min(Sigmod_SVR_test_pred), min(y_validate), min(Sigmod_SVR_validate_pred))
+max_val_Sigmod_SVR = max(max(y_test), max(Sigmod_SVR_test_pred), max(y_validate), max(Sigmod_SVR_validate_pred))
+
+min_val_Linear = min(min(y_test), min(Linear_test_pred), min(y_validate), min(Linear_validate_pred))
+max_val_Linear = max(max(y_test), max(Linear_test_pred), max(y_validate), max(Linear_validate_pred))
+
+min_val_Ridge = min(min(y_test), min(Ridge_test_pred), min(y_validate), min(Ridge_validate_pred))
+max_val_Ridge = max(max(y_test), max(Ridge_test_pred), max(y_validate), max(Ridge_validate_pred))
+
+# 绘制BPNN验证集和测试集的回归效果
+plt.figure(figsize=(10, 6))
+plt.scatter(MLP_validate_pred, y_validate,  marker='o', color='blue', label='Validation Data')
+plt.scatter(MLP_test_pred, y_test,  marker='s', color='red', label='Test Data')
+plt.plot([min_val_BPNN, max_val_BPNN], [min_val_BPNN, max_val_BPNN], linestyle='-', color='orange', label='Slope 1')
+plt.title("BPNN", fontsize=18, weight='bold')
+plt.xlabel("Predicted Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.ylabel("Simulated Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.legend(loc='lower right', prop={'size': 12, 'weight': 'bold'})
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.xlim(min_val_BPNN, max_val_BPNN)
+plt.ylim(min_val_BPNN, max_val_BPNN)
+plt.show()
+
+# 绘制rbf+SVR验证集和测试集的回归效果
+plt.figure(figsize=(10, 6))
+plt.scatter(Rbf_SVR_validate_pred, y_validate,  marker='o', color='blue', label='Validation Data')
+plt.scatter(Rbf_SVR_test_pred, y_test,  marker='s', color='red', label='Test Data')
+plt.plot([min_val_Rbf_SVR, max_val_Rbf_SVR], [min_val_Rbf_SVR, max_val_Rbf_SVR], linestyle='-', color='orange', label='Slope 1')
+plt.title("Rbf-SVR", fontsize=18, weight='bold')
+plt.xlabel("Predicted Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.ylabel("Simulated Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.legend(loc='lower right', prop={'size': 12, 'weight': 'bold'})
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.xlim(min_val_Rbf_SVR, max_val_Rbf_SVR)
+plt.ylim(min_val_Rbf_SVR, max_val_Rbf_SVR)
+plt.show()
+
+# 绘制sigmod-SVR验证集和测试集的回归效果
+plt.figure(figsize=(8, 6))
+plt.scatter(Sigmod_SVR_validate_pred, y_validate,  marker='o', color='blue', label='Validation Data')
+plt.scatter(Sigmod_SVR_test_pred, y_test,  marker='s', color='red', label='Test Data')
+plt.plot([min_val_Sigmod_SVR, max_val_Sigmod_SVR], [min_val_Sigmod_SVR, max_val_Sigmod_SVR], linestyle='-', color='orange', label='Slope 1')
+plt.title("Sigmod-SVR", fontsize=18, weight='bold')
+plt.xlabel("Predicted Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.ylabel("Simulated Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.legend(loc='lower right', prop={'size': 12, 'weight': 'bold'})
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.xlim(min_val_Sigmod_SVR, max_val_Sigmod_SVR)
+plt.ylim(min_val_Sigmod_SVR, max_val_Sigmod_SVR)
+plt.show()
+
+# 绘制多元线性回归验证集和测试集的回归效果
+plt.figure(figsize=(8, 6))
+plt.scatter(Linear_validate_pred, y_validate,  marker='o', color='blue', label='Validation Data')
+plt.scatter(Linear_test_pred, y_test,  marker='s', color='red', label='Test Data')
+plt.plot([min_val_Linear, max_val_Linear], [min_val_Linear, max_val_Linear], linestyle='-', color='orange', label='Slope 1')
+plt.title("Linear", fontsize=18, weight='bold')
+plt.xlabel("Predicted Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.ylabel("Simulated Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.legend(loc='lower right', prop={'size': 12, 'weight': 'bold'})
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.xlim(min_val_Linear, max_val_Linear)
+plt.ylim(min_val_Linear, max_val_Linear)
+plt.show()
+
+# 绘制岭回归验证集和测试集的回归效果
+plt.figure(figsize=(8, 6))
+plt.scatter(Ridge_validate_pred, y_validate,  marker='o', color='blue', label='Validation Data')
+plt.scatter(Ridge_test_pred, y_test,  marker='s', color='red', label='Test Data')
+plt.plot([min_val_Ridge, max_val_Ridge], [min_val_Ridge, max_val_Ridge], linestyle='-', color='orange', label='Slope 1')
+plt.title("Ridge", fontsize=18, weight='bold')
+plt.xlabel("Predicted Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.ylabel("Simulated Resistivity", weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.legend(loc='lower right', prop={'size': 12, 'weight': 'bold'})
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.xlim(min_val_Ridge, max_val_Ridge)
+plt.ylim(min_val_Ridge, max_val_Ridge)
+plt.show()
