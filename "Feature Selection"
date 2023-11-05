@@ -1,0 +1,103 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+import xgboost as xgb
+
+file = r'./Desktop/XLWSJ/CFZHDZLTCR729.xlsx'
+data = pd.read_excel(file) 
+plt.rcParams['font.sans-serif'] = ['Times New Roman']
+plt.rcParams['axes.unicode_minus'] = False
+X = data.drop(columns=['DZL','TCR','Ti','Si','Mn'])
+#y = data['DZL']
+y = data['TCR']
+X_train, X_validation, Y_train, Y_validation = train_test_split(X, y, test_size=0.2, random_state=None)
+
+#随机森林模型
+RF_model = RandomForestRegressor(n_estimators=100,random_state=1,n_jobs=-1,max_depth=4)
+RF_model.fit(X_train, Y_train)
+RF_importances = list(RF_model.feature_importances_)
+
+#xgboost模型
+Xgb_model = xgb.XGBRegressor(max_depth=4, learning_rate=0.05, n_estimators=150)
+Xgb_model.fit(X_train, Y_train)
+Xgb_importances = list(Xgb_model.feature_importances_)
+
+
+#可视化预处理
+feature_list = list(X_train.columns)
+x_values = list(range(len(RF_importances)))
+op1=np.round(RF_importances,4)
+op2=np.round(Xgb_importances,4)
+
+x = list(X_train.columns)
+feature_data=RF_model.feature_importances_
+colors = []
+for _ in range(int(len(feature_data) / 2)):
+    colors.append([_ / int(len(feature_data) / 2), 0.5, 0.5])
+colors = colors + colors[::-1]
+
+#RF可视化
+p1=plt.bar(x_values, RF_importances, color=colors,orientation='vertical')
+plt.bar_label(p1,labels=op1,padding=0.2)
+plt.xticks(x_values, feature_list, rotation=0)#rotation为字体旋转角度
+plt.ylabel('Feature Importances',weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.xlabel('Element',weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.title('Random Forest',fontsize=18, weight='bold')
+plt.show()
+
+
+#Xgb可视化
+p1=plt.bar(x_values, Xgb_importances, color=colors,orientation='vertical')
+plt.bar_label(p1,labels=op2,padding=0.2)
+plt.xticks(x_values, feature_list, rotation=0)
+plt.ylabel('Feature Importances',weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.xlabel('Element',weight='bold', fontdict={'family': 'Times New Roman', 'weight': 'normal', 'size': 17})
+plt.title('Xgboost',fontsize=18, weight='bold')
+plt.show()
+
+import shap
+import matplotlib.pyplot as plt
+
+# 计算随机森林模型的SHAP值
+explainer_RF = shap.Explainer(RF_model)
+shap_values_RF = explainer_RF(X_train)
+
+# 计算XGBoost模型的SHAP值
+explainer_Xgb = shap.Explainer(Xgb_model)
+shap_values_Xgb = explainer_Xgb(X_train)
+
+# 自定义SHAP值柱状图
+def custom_summary_plot(shap_values, model_name):
+    shap.summary_plot(shap_values, X_train, show=False)
+    plt.title(f"{model_name} SHAP Values", fontsize=18, weight='bold')
+    plt.xlabel("SHAP Value", fontsize=16, weight='bold')
+    plt.ylabel("Feature", fontsize=16, weight='bold')
+    plt.show()
+
+# 显示随机森林模型的SHAP值图
+custom_summary_plot(shap_values_RF, "Random Forest")
+
+# 显示XGBoost模型的SHAP值图
+custom_summary_plot(shap_values_Xgb, "XGBoost")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
